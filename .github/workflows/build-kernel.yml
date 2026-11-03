@@ -1,0 +1,86 @@
+name: Kernel
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ 10-alps ]
+
+env:
+  ARCH: arm64
+  SUBARCH: arm64
+  CLANG_TRIPLE: aarch64-linux-gnu-
+  CROSS_COMPILE: aarch64-linux-gnu-
+  CROSS_COMPILE_ARM32: arm-linux-gnueabi-
+  CCACHE_DIR: /home/runner/.ccache
+  CCACHE_MAXSIZE: 5G
+  CCACHE_COMPRESS: 1
+  CCACHE_COMPRESSLEVEL: 1
+  CCACHE_SLOPPINESS: time_macros,include_file_mtime,include_file_ctime
+  CCACHE_NOHASHDIR: 1
+  KBUILD_BUILD_USER: builder
+  KBUILD_BUILD_HOST: actions
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Cache Clang
+        uses: actions/cache@v4
+        with:
+          path: clang
+          key: ${{ runner.os }}-proton-clang-master
+
+      - name: Cache Ccache
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.ccache
+          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-ccache-
+
+      - name: Deps
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends bc libelf-dev ccache zip libncurses6
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /usr/lib/x86_64-linux-gnu/libtinfo.so.5 2>/dev/null || true
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/libncurses.so.6 /usr/lib/x86_64-linux-gnu/libncurses.so.5 2>/dev/null || true
+
+      - name: Toolchain
+        run: |
+          if [ ! -f "clang/bin/clang" ]; then
+            git clone --depth=1 https://github.com/kdrag0n/proton-clang.git clang
+          fi
+          # Remove outdated bundled host binutils so host gcc uses native system ld/as
+          rm -f clang/bin/ld clang/bin/as
+
+      - name: Build
+        run: |
+          export PATH="$PWD/clang/bin:$PATH"
+
+          mkdir -p out
+          JOBS=$(( $(nproc --all) * 2 ))
+
+          make -j${JOBS} O=out certus_defconfig
+          make -j${JOBS} O=out CC="ccache clang" HOSTCC="ccache gcc" HOSTCXX="ccache g++" Image.gz-dtb dtbs
+
+      - name: Package
+        run: |
+          git clone --depth=1 -b certus-lotuskernel https://github.com/xiaomi-mt6765-devs/AnyKernel3.git anykernel
+
+          sed -i 's/kernel.string=.*/kernel.string=Redmi 6A Kernel/g' anykernel/anykernel.sh
+
+          cp out/arch/arm64/boot/Image.gz-dtb anykernel/Image.gz-dtb
+
+          cd anykernel
+          zip -r9 ../cactus-kernel-$(date +'%Y%m%d').zip * -x .git README.md *placeholder
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: cactus-kernel
+          path: cactus-kernel-*.zip
