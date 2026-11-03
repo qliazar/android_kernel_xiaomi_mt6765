@@ -559,11 +559,11 @@ int mt_cpufreq_dts_map(void)
 
 unsigned int _mt_cpufreq_get_cpu_level(void)
 {
-	unsigned int lv = CPU_LEVEL_3;
+	unsigned int lv = CPU_LEVEL_2;
 	int val = get_devinfo_with_index(30);
 	int val_ly = (get_devinfo_with_index(132) >> 1) & 0x1;
 
-#if 1
+#if 0
 	if ((val == 0x2) || (val == 0x5))
 		lv = CPU_LEVEL_2;
 	else if ((val == 0x4) || (val == 0x3))
@@ -586,7 +586,8 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 			lv = CPU_LEVEL_5;
 	}
 #else
-	lv = CPU_LEVEL_3;
+	/* Force CPU_LEVEL_2 (C65T: 2.50GHz L, 1.70GHz LL, 1.05GHz CCI) for High OC */
+	lv = CPU_LEVEL_2;
 #endif
 	turbo_flag = 0;
 	tag_pr_info("%d,%d,%d,%d,%d,%d,%d,%d\n",

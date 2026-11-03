@@ -218,8 +218,7 @@ static int commit_data(int type, int data, int check_spmfw)
 		break;
 	case PM_QOS_DDR_OPP:
 		mutex_lock(&sw_req1_mutex);
-		if (data >= DDR_OPP_NUM || data < 0)
-			data = DDR_OPP_NUM - 1;
+		data = DDR_OPP_0;
 
 		opp = data;
 		level = DDR_OPP_NUM - data - 1;

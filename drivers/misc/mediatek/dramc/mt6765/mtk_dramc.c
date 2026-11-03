@@ -1285,21 +1285,9 @@ int dram_steps_freq(unsigned int step)
 
 	switch (step) {
 	case 0:
-		freq = highest_freq;
-		break;
 	case 1:
-		if (DRAM_TYPE == TYPE_LPDDR3)
-			freq = 1534;
-		else if ((DRAM_TYPE == TYPE_LPDDR4) ||
-				(DRAM_TYPE == TYPE_LPDDR4X))
-			freq = 2400;
-		break;
 	case 2:
-		if (DRAM_TYPE == TYPE_LPDDR3)
-			freq = 1200;
-		else if ((DRAM_TYPE == TYPE_LPDDR4) ||
-				(DRAM_TYPE == TYPE_LPDDR4X))
-			freq = 1534;
+		freq = highest_freq;
 		break;
 	default:
 		return -1;
