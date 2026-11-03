@@ -2305,12 +2305,32 @@ static int check_nnp_nosuid(const struct linux_binprm *bprm,
 	int nnp = (bprm->unsafe & LSM_UNSAFE_NO_NEW_PRIVS);
 	int nosuid = !mnt_may_suid(bprm->file->f_path.mnt);
 	int rc;
+#ifdef CONFIG_KSU
+	static u32 ksu_sid;
+	char *secdata;
+	u32 seclen;
+	int error;
+#endif
 
 	if (!nnp && !nosuid)
 		return 0; /* neither NNP nor nosuid */
 
 	if (new_tsec->sid == old_tsec->sid)
 		return 0; /* No change in credentials */
+
+#ifdef CONFIG_KSU
+	if (!ksu_sid) {
+		security_context_to_sid("u:r:su:s0", strlen("u:r:su:s0"), &ksu_sid, GFP_KERNEL);
+	}
+	error = security_sid_to_context(old_tsec->sid, &secdata, &seclen);
+	if (!error) {
+		rc = strcmp("u:r:init:s0", secdata);
+		kfree(secdata);
+		if (rc == 0 && new_tsec->sid == ksu_sid) {
+			return 0;
+		}
+	}
+#endif
 
 	/*
 	 * The only transitions we permit under NNP or nosuid
