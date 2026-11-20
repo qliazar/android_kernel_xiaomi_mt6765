@@ -1,0 +1,87 @@
+name: Kernel
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ pie ]
+
+env:
+  ARCH: arm
+  SUBARCH: arm
+  CROSS_COMPILE: arm-linux-androideabi-
+  CCACHE_DIR: /home/runner/.ccache
+  CCACHE_MAXSIZE: 3G
+  CCACHE_COMPRESS: 1
+  CCACHE_COMPRESSLEVEL: 1
+  KBUILD_BUILD_USER: builder
+  KBUILD_BUILD_HOST: actions
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          submodules: recursive
+
+      - name: Cache GCC
+        uses: actions/cache@v4
+        with:
+          path: gcc
+          key: ${{ runner.os }}-gcc-arm-linux-androideabi-4.9
+
+      - name: Cache Ccache
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.ccache
+          key: ${{ runner.os }}-ccache-${{ github.run_id }}
+          restore-keys: ${{ runner.os }}-ccache-
+
+      - name: Deps
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends bc libelf-dev libssl-dev ccache zip libncurses6 python2
+          sudo ln -sf /usr/bin/python2 /usr/bin/python
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /usr/lib/x86_64-linux-gnu/libtinfo.so.5 2>/dev/null || true
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/libncurses.so.6 /usr/lib/x86_64-linux-gnu/libncurses.so.5 2>/dev/null || true
+
+      - name: Toolchain
+        run: |
+          if [ ! -f "gcc/bin/arm-linux-androideabi-gcc" ]; then
+            git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9.git gcc
+          fi
+
+      - name: Build
+        run: |
+          export PATH="$PWD/gcc/bin:$PATH"
+
+          mkdir -p out
+          JOBS=$(( $(nproc --all) * 2 ))
+
+          make -j${JOBS} O=out ARCH=arm SUBARCH=arm CC="ccache arm-linux-androideabi-gcc" CROSS_COMPILE=arm-linux-androideabi- cactus_defconfig
+          make -j${JOBS} O=out ARCH=arm SUBARCH=arm CC="ccache arm-linux-androideabi-gcc" CROSS_COMPILE=arm-linux-androideabi- zImage-dtb
+
+      - name: Package
+        run: |
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git anykernel
+
+          # Fix AnyKernel3 magiskboot unpack on zImage-dtb (kernel decompression error)
+          sed -i 's/magiskboot unpack -h \$BOOTIMG/magiskboot unpack -h -n \$BOOTIMG/' anykernel/tools/ak3-core.sh
+
+          cp anykernel.sh anykernel/anykernel.sh
+
+          # Cactus boot image has zImage and appended DTB as a single zImage-dtb payload
+          cp out/arch/arm/boot/zImage-dtb anykernel/zImage
+          cp out/arch/arm/boot/zImage-dtb anykernel/zImage-dtb
+
+          cd anykernel
+          zip -r9 ../cactus-kernel-$(date +'%Y%m%d').zip * -x .git README.md *placeholder
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: cactus-kernel
+          path: cactus-kernel-*.zip
