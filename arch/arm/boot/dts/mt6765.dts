@@ -2700,8 +2700,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 
 		/* charging current */
 		usb_charger_current = <500000>;
-		ac_charger_current = <1100000>;
-		ac_charger_input_current = <1100000>;
+		ac_charger_current = <2000000>;
+		ac_charger_input_current = <2000000>;
 		non_std_ac_charger_current = <1100000>;
 		charging_host_charger_current = <1100000>;
 		ta_ac_charger_current = <3000000>;
@@ -2734,8 +2734,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		usb_charger_current_unconfigured = <70000>;
 		usb_charger_current_configured = <500000>;
 		usb_charger_current = <500000>;
-		ac_charger_current = <1100000>;
-		ac_charger_input_current = <1100000>;
+		ac_charger_current = <2000000>;
+		ac_charger_input_current = <2000000>;
 		non_std_ac_charger_current = <1100000>;
 		charging_host_charger_current = <1100000>;
 		apple_1_0a_charger_current = <650000>;
